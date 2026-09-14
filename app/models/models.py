@@ -1,8 +1,18 @@
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Numeric
+from sqlalchemy import Boolean, Column, Integer, String, Text, DateTime, ForeignKey, Numeric
 from app.db.database import Base
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    email = Column(String(150), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(String(30), nullable=False, default="customer")
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 class Customer(Base):
     __tablename__ = "customers"
