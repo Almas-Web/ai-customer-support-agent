@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from app.models.models import User
 from app.schems.auth import RegisterRequest
-from app.security import hash_password
+from app.security import hash_password, verify_password
 
 
 def register_user(db: Session, user_data: RegisterRequest):
@@ -25,5 +25,28 @@ def register_user(db: Session, user_data: RegisterRequest):
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    return user
+
+
+def authenticate_user(
+    db: Session,
+    email: str,
+    password: str,
+):
+    user = (
+        db.query(User)
+        .filter(User.email == email)
+        .first()
+    )
+
+    if not user:
+        return None
+
+    if not verify_password(password, user.password_hash):
+        return None
+
+    if not user.is_active:
+        return None
 
     return user
