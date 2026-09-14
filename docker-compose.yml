@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16
+    container_name: ai_support_agent_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ai_support_agent
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
