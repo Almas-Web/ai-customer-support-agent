@@ -110,4 +110,18 @@ def test_customer_cannot_access_admin_role():
     except HTTPException as exc:
         assert exc.status_code == 403
         assert exc.detail == "You do not have permission to perform this action."
-        
+
+def test_agent_forces_authenticated_customer_id(monkeypatch):
+    from app.agent import agent
+    captured = {}
+    def fake_get_payment_status(db, customer_id, payment_id=None, failed_only=False):
+        captured["customer_id"] = customer_id
+        return {"success": False, "error": "Payment not found."}
+    monkeypatch.setitem(agent.TOOL_FUNCTIONS, "get_payment_status", fake_get_payment_status)
+    function = agent.TOOL_FUNCTIONS["get_payment_status"]
+    function(
+        db=None,
+        customer_id=1,
+        payment_id=999,
+    )
+    assert captured["customer_id"] == 1
