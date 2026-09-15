@@ -1,11 +1,10 @@
 from sqlalchemy.orm import Session
 from app.models.models import Invoice
-
-
-def get_invoice_by_id(db: Session, invoice_id: int):
-    return db.query(Invoice).filter(Invoice.id == invoice_id).first()
-
-
+def get_invoice_by_id(db: Session, invoice_id: int, customer_id: int):
+    return db.query(Invoice).filter(
+        Invoice.id == invoice_id,
+        Invoice.customer_id == customer_id
+    ).first()
 def get_customer_invoices(db: Session, customer_id: int):
     return (
         db.query(Invoice)
@@ -13,8 +12,6 @@ def get_customer_invoices(db: Session, customer_id: int):
         .order_by(Invoice.created_at.desc())
         .all()
     )
-
-
 def get_latest_invoice(db: Session, customer_id: int):
     return (
         db.query(Invoice)
@@ -22,8 +19,6 @@ def get_latest_invoice(db: Session, customer_id: int):
         .order_by(Invoice.created_at.desc())
         .first()
     )
-
-
 def get_unpaid_invoices(db: Session, customer_id: int):
     return (
         db.query(Invoice)

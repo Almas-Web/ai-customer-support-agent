@@ -5,8 +5,6 @@ from app.services.ticket_service import (
     get_customer_tickets,
 )
 from app.schems.ticket import TicketCreate
-
-
 def create_support_ticket(
     db: Session,
     customer_id: int,
@@ -20,9 +18,7 @@ def create_support_ticket(
         description=description,
         priority=priority,
     )
-
     ticket = create_ticket(db, ticket_data)
-
     return {
         "success": True,
         "ticket": {
@@ -35,20 +31,17 @@ def create_support_ticket(
             "created_at": ticket.created_at.isoformat(),
         },
     }
-
-
 def get_support_ticket(
     db: Session,
     ticket_id: int,
+    customer_id: int,
 ):
-    ticket = get_ticket_by_id(db, ticket_id)
-
+    ticket = get_ticket_by_id(db, ticket_id, customer_id)
     if not ticket:
         return {
             "success": False,
             "error": "Support ticket not found.",
         }
-
     return {
         "success": True,
         "ticket": {
@@ -61,14 +54,11 @@ def get_support_ticket(
             "created_at": ticket.created_at.isoformat(),
         },
     }
-
-
 def get_customer_support_tickets(
     db: Session,
     customer_id: int,
 ):
     tickets = get_customer_tickets(db, customer_id)
-
     return {
         "success": True,
         "tickets": [

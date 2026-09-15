@@ -4,8 +4,6 @@ from app.services.payment_service import (
     get_latest_payment,
     get_failed_payments,
 )
-
-
 def get_payment_status(
     db: Session,
     customer_id: int,
@@ -13,14 +11,12 @@ def get_payment_status(
     failed_only: bool = False,
 ):
     if payment_id is not None:
-        payment = get_payment_by_id(db, payment_id)
-
+        payment = get_payment_by_id(db, payment_id, customer_id)
         if not payment:
             return {
                 "success": False,
                 "error": "Payment not found.",
             }
-
         return {
             "success": True,
             "payment": {
@@ -33,19 +29,16 @@ def get_payment_status(
                 "created_at": payment.created_at.isoformat(),
             },
         }
-
     if failed_only:
         payments = get_failed_payments(db, customer_id)
     else:
         payment = get_latest_payment(db, customer_id)
         payments = [payment] if payment else []
-
     if not payments:
         return {
             "success": False,
             "error": "No payment found.",
         }
-
     return {
         "success": True,
         "payments": [

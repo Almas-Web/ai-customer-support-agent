@@ -1,6 +1,7 @@
 import json
 from google import genai
 from google.genai import types
+from google.genai.errors import ClientError
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.agent.tools import TOOLS
@@ -141,7 +142,6 @@ def run_agent(
             for message in previous_messages
         ]
     else:
-        conversation = None
         contents = []
     contents.append(
         types.Content(
@@ -157,14 +157,19 @@ def run_agent(
             content=user_message,
         )
     for _ in range(max_iterations):
-        response = client.models.generate_content(
-            model="gemini-3.5-flash",
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
-                tools=build_gemini_tools(),
-            ),
-        )
+        try:
+            response = client.models.generate_content(
+                model="gemini-3.5-flash",
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    tools=build_gemini_tools(),
+                ),
+            )
+        except ClientError as exc:
+            if exc.code == 429:
+                return "The AI service is temporarily unavailable because the Gemini API quota has been reached. Please try again later."
+            return "The AI service could not process your request right now. Please try again later."
         if not response.function_calls:
             final_response = response.text
             if conversation_id is not None:
@@ -207,9 +212,9 @@ def run_agent(
                     parts=[
                         types.Part.from_function_response(
                             name=function_name,
-                            response=tool_result,
+                            response=tool_result
                         )
-                    ],
+                    ]
                 )
             )
     return "I could not complete the request within the allowed number of steps."
