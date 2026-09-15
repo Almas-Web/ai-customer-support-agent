@@ -4,23 +4,20 @@ from google.genai import types
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.agent.tools import TOOLS
-
+from app.services.conversation_service import add_message, get_conversation, get_conversation_messages
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
 SYSTEM_PROMPT = """
 You are an AI customer support agent.
 You help customers with payments, invoices, and support tickets.
-
 You can use tools to retrieve or modify customer information.
-
 Rules:
 - Use tools when real customer data is required.
 - Never invent customer, payment, invoice, or ticket information.
-- If a tool returns an error, explain the problem clearly.
 - You may use multiple tools when necessary.
 - Keep responses clear and concise.
+- Always use the authenticated customer ID provided by the application.
+- Never access another customer's data.
 """
-
 TOOL_FUNCTIONS = {
     "get_customer": TOOLS["get_customer"],
     "get_payment_status": TOOLS["get_payment_status"],
@@ -28,8 +25,6 @@ TOOL_FUNCTIONS = {
     "create_support_ticket": TOOLS["create_support_ticket"],
     "send_email": TOOLS["send_email"],
 }
-
-
 def build_gemini_tools():
     return [
         types.Tool(
@@ -42,7 +37,7 @@ def build_gemini_tools():
                 for tool in [
                     {
                         "name": "get_customer",
-                        "description": "Find a customer by customer ID or email address.",
+                        "description": "Find the authenticated customer's information.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
@@ -53,7 +48,7 @@ def build_gemini_tools():
                     },
                     {
                         "name": "get_payment_status",
-                        "description": "Check a customer's payment status.",
+                        "description": "Check the authenticated customer's payment status.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
@@ -66,7 +61,7 @@ def build_gemini_tools():
                     },
                     {
                         "name": "get_invoice",
-                        "description": "Get a customer's invoice information.",
+                        "description": "Get the authenticated customer's invoice information.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
@@ -79,7 +74,7 @@ def build_gemini_tools():
                     },
                     {
                         "name": "create_support_ticket",
-                        "description": "Create a support ticket for a customer.",
+                        "description": "Create a support ticket for the authenticated customer.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
@@ -100,7 +95,7 @@ def build_gemini_tools():
                     },
                     {
                         "name": "send_email",
-                        "description": "Prepare an email for a customer.",
+                        "description": "Prepare an email for the authenticated customer.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
@@ -119,20 +114,48 @@ def build_gemini_tools():
             ]
         )
     ]
-
-
 def run_agent(
     db: Session,
     user_message: str,
+    customer_id: int,
+    conversation_id: int | None = None,
     max_iterations: int = 5,
 ):
-    contents = [
+    if conversation_id is not None:
+        conversation = get_conversation(
+            db,
+            conversation_id,
+            customer_id,
+        )
+        if not conversation:
+            return "Conversation not found."
+        previous_messages = get_conversation_messages(
+            db,
+            conversation_id,
+        )
+        contents = [
+            types.Content(
+                role="user" if message.role == "user" else "model",
+                parts=[types.Part(text=message.content)],
+            )
+            for message in previous_messages
+        ]
+    else:
+        conversation = None
+        contents = []
+    contents.append(
         types.Content(
             role="user",
             parts=[types.Part(text=user_message)],
         )
-    ]
-
+    )
+    if conversation_id is not None:
+        add_message(
+            db=db,
+            conversation_id=conversation_id,
+            role="user",
+            content=user_message,
+        )
     for _ in range(max_iterations):
         response = client.models.generate_content(
             model="gemini-3.5-flash",
@@ -142,18 +165,23 @@ def run_agent(
                 tools=build_gemini_tools(),
             ),
         )
-
         if not response.function_calls:
-            return response.text
-
+            final_response = response.text
+            if conversation_id is not None:
+                add_message(
+                    db=db,
+                    conversation_id=conversation_id,
+                    role="assistant",
+                    content=final_response,
+                )
+            return final_response
         contents.append(response.candidates[0].content)
-
         for function_call in response.function_calls:
             function_name = function_call.name
             function_args = dict(function_call.args or {})
-
             function = TOOL_FUNCTIONS.get(function_name)
-
+            if function_name != "send_email":
+                function_args["customer_id"] = customer_id
             if not function:
                 tool_result = {
                     "success": False,
@@ -173,7 +201,6 @@ def run_agent(
                         "success": False,
                         "error": str(exc),
                     }
-
             contents.append(
                 types.Content(
                     role="tool",
@@ -185,5 +212,4 @@ def run_agent(
                     ],
                 )
             )
-
     return "I could not complete the request within the allowed number of steps."

@@ -3,12 +3,11 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.dependencies import get_current_user
 from app.models.models import Customer, User
-from app.schems.agent import AgentRequest, AgentResponse
-from app.agent.agent import run_agent
-router = APIRouter(prefix="/agent", tags=["Agent"])
-@router.post("/chat", response_model=AgentResponse)
-def chat_with_agent(
-    request: AgentRequest,
+from app.services.invoice_service import get_customer_invoices
+from app.schems.invoice import InvoiceResponse
+router = APIRouter(prefix="/invoices", tags=["Invoices"])
+@router.get("/me", response_model=list[InvoiceResponse])
+def get_my_invoices(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -20,10 +19,4 @@ def chat_with_agent(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Customer profile not found.",
         )
-    response = run_agent(
-        db=db,
-        user_message=request.message,
-        customer_id=customer.id,
-        conversation_id=request.conversation_id,
-    )
-    return AgentResponse(response=response)
+    return get_customer_invoices(db, customer.id)
