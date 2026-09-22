@@ -8,3 +8,4 @@ python-dotenv
 httpx
 pytest
 google-genai
+email-validator
