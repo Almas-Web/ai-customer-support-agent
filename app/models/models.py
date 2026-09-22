@@ -17,10 +17,19 @@ class Customer(Base):
     email = Column(String(150), unique=True, nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+class Order(Base):
+    __tablename__ = "orders"
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+    item_name = Column(String(255), nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
+    status = Column(String(20), nullable=False, default="paid")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 class Payment(Base):
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True, index=True)
     amount = Column(Numeric(12, 2), nullable=False)
     status = Column(String(20), nullable=False)
     failure_reason = Column(String(255), nullable=True)
@@ -30,6 +39,7 @@ class Invoice(Base):
     __tablename__ = "invoices"
     id = Column(Integer, primary_key=True, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True, index=True)
     invoice_number = Column(String(100), unique=True, nullable=False, index=True)
     amount = Column(Numeric(12, 2), nullable=False)
     status = Column(String(20), nullable=False)

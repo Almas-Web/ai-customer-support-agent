@@ -125,3 +125,40 @@ def test_agent_forces_authenticated_customer_id(monkeypatch):
         payment_id=999,
     )
     assert captured["customer_id"] == 1
+
+def test_customer_cannot_access_other_customer_order(db):
+    from app.models.models import Customer, Order
+    from app.services.order_service import get_order_by_id
+
+    customer_one = Customer(
+        name="Security Customer One",
+        email="order-security-one@example.com",
+    )
+    customer_two = Customer(
+        name="Security Customer Two",
+        email="order-security-two@example.com",
+    )
+
+    db.add_all([customer_one, customer_two])
+    db.commit()
+    db.refresh(customer_one)
+    db.refresh(customer_two)
+
+    order = Order(
+        customer_id=customer_two.id,
+        item_name="Private Product",
+        amount=99.99,
+        status="paid",
+    )
+
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+
+    result = get_order_by_id(
+        db=db,
+        order_id=order.id,
+        customer_id=customer_one.id,
+    )
+
+    assert result is None

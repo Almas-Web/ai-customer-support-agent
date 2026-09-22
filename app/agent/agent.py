@@ -96,7 +96,7 @@ def build_gemini_tools():
                     },
                     {
                         "name": "send_email",
-                        "description": "Prepare an email for the authenticated customer.",
+                        "description": "Prepare an email for the authenticated customer. Use this after retrieving invoice or payment information when the customer asks to receive that information by email.",
                         "parameters": {
                             "type": "OBJECT",
                             "properties": {
