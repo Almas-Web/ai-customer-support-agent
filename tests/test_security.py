@@ -162,3 +162,36 @@ def test_customer_cannot_access_other_customer_order(db):
     )
 
     assert result is None
+
+
+def test_customer_cannot_access_other_customer_order_through_tool(db):
+    from app.models.models import Customer, Order
+    from app.tools.order_tools import get_order
+    customer_one = Customer(
+        name="Tool Customer One",
+        email="tool-order-one@example.com",
+    )
+    customer_two = Customer(
+        name="Tool Customer Two",
+        email="tool-order-two@example.com",
+    )
+    db.add_all([customer_one, customer_two])
+    db.commit()
+    db.refresh(customer_one)
+    db.refresh(customer_two)
+    order = Order(
+        customer_id=customer_two.id,
+        item_name="Private Order",
+        amount=150.00,
+        status="paid",
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    result = get_order(
+        db=db,
+        customer_id=customer_one.id,
+        order_id=order.id,
+    )
+    assert result["success"] is False
+    assert result["error"] == "Order not found."
